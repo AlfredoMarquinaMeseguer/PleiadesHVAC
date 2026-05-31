@@ -7,8 +7,7 @@ from flwr.app import ArrayRecord, Context
 from flwr.serverapp import Grid, ServerApp
 from flwr.serverapp.strategy import FedAvg
 
-from baseline.model import Net
-
+from baseline.model import load_model
 # Create ServerApp
 app = ServerApp()
 
@@ -20,12 +19,12 @@ def main(grid: Grid, context: Context) -> None:
     keras.backend.clear_session()
 
     # Read from config
-    num_rounds: int = int(context.run_config["num-server-rounds"])
-    fraction_train: float = float(context.run_config["fraction-train"])
+    num_rounds = int(context.run_config["num-server-rounds"])
+    fraction_train = float(context.run_config["fraction-train"])
 
     # Load global model
-    global_model:tf.keras.Model = load_model()
-    arrays = ArrayRecord(global_model.get_weights())
+    model:tf.keras.Model = load_model()
+    arrays = ArrayRecord(model.get_weights())
 
     # Initialize FedAvg strategy
     strategy = FedAvg(
@@ -40,34 +39,14 @@ def main(grid: Grid, context: Context) -> None:
         initial_arrays=arrays,
         num_rounds=num_rounds,
     )
-
-        # Define and start FedAvg strategy
-    strategy = FedAvg(
-        fraction_train=fraction_train,
-    )
-
-    result = strategy.start(
-        grid=grid,
-        initial_arrays=arrays,
-        num_rounds=num_rounds,
-    )
-    
-    # Save final model to disk
-    print("\nSaving final model to disk...")
-    state_dict = result.arrays.to_torch_state_dict()
-    torch.save(state_dict, "final_model.pt")
-
+         
     # Save model in tensorflow
-    '''        
-        if context.run_config["save-model"]:
-            # Save the final model
-            ndarrays = result.arrays.to_numpy_ndarrays()
-            final_model_name = "final_model.keras"
-            print(f"Saving final model to disk as {final_model_name}...")
-            model.set_weights(ndarrays)
-            model.save(final_model_name)
-    '''
-
-# TODO: Método que según config carga el modelo correcto
-def load_model():
-    raise NotImplementedError
+   
+    if context.run_config["save-model"]:
+        # Save the final model
+        ndarrays = result.arrays.to_numpy_ndarrays()
+        final_model_name = "final_model.keras"
+        print(f"Saving final model to disk as {final_model_name}...")
+        model.set_weights(ndarrays)
+        model.save(final_model_name)
+   
