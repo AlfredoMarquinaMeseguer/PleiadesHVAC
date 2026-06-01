@@ -34,7 +34,7 @@ def train(msg: Message, context: Context):
     model = load_model(context, learning_rate)
     model.set_weights(msg.content["arrays"].to_numpy_ndarrays())
     epochs : int = int(context.run_config["local-epochs"])
-    batch_size = context.run_config["batch-size"]
+    batch_size: int = int(context.run_config["batch-size"])
     verbose =  context.run_config.get("verbose")
 
     # Train the model
