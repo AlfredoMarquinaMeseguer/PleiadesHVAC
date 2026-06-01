@@ -5,7 +5,7 @@ import keras
 from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import IidPartitioner
 from keras import layers
-from baseline.models import GRUModelBuilder
+from baseline.models import GRUModelBuilder, GRUSimpleModelBuilder, ConvLSTMModelBuilder, LSTMModelBuilder, TransformerModelBuilder
 from baseline.dataset import get_data_shape
 from flwr.app import Context
 
@@ -36,10 +36,31 @@ def load_model(learning_rate: float = 0.001):
     return model
 '''
 
-def load_model(learning_rate: float = 0.001, context: Context|None = None):
+def load_model(context, learning_rate: float = 0.001):
+    
     input_shape = get_data_shape(context)
+    model = None
+
+    match context.run_config["model-type"]:
+        case "convlstm":
+            input_shape = (input_shape[0], 1, input_shape[1], 1)
+            model = ConvLSTMModelBuilder(input_shape=input_shape, learning_rate=learning_rate)
+        case "lstm":    
+            model = LSTMModelBuilder(input_shape=input_shape, learning_rate= learning_rate)
+        case "gru":    
+            model = GRUModelBuilder(input_shape=input_shape, learning_rate=learning_rate)
+        case "gruSimple":    
+            model = GRUSimpleModelBuilder(input_shape=input_shape, learning_rate=learning_rate)
+        case "transformer":    
+            model = TransformerModelBuilder(input_shape=input_shape, learning_rate=learning_rate)
+        case _:
+            raise ValueError("Model type selected in configuration not an allowed model. Please make sure the value entered "+
+                         "either through console or configuration is one of the following values: transformer, lstm, "+
+                         "convlstm, gru or gruSimple.\n You can find the value inside pyproject.toml, section "+
+                         "[tool.flwr.app.config] and be called 'model-type'")        
+    
     # TODO: cambiar para que la se seleccione el tipo de modelo segun config
-    return GRUModelBuilder(input_shape=input_shape).build()
+    return model.build()
 
 '''
 def train(net, trainloader, epochs, device):

@@ -11,7 +11,7 @@ from flwr.app import Context
 fds: datasets.DatasetDict | None = None  # Cache FederatedDataset
 train_partitioner : IidPartitioner | None = None
 
-def load_data(partition_id, num_partitions, context: Context = None) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] :
+def load_data(partition_id, num_partitions, context: Context | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] :
     # Download and partition dataset
     # Only initialize `FederatedDataset` once
     global fds
@@ -23,7 +23,7 @@ def load_data(partition_id, num_partitions, context: Context = None) -> tuple[np
             raise FileNotFoundError("The root directory of the datasets has not been provided.")
         # Versión con path absoluto
         #data_files = context.run_config["data-path"] + "/" + context.run_config["data-set"]
-        data_files = "data/" + context.run_config["data-set"]
+        data_files : str = "data/" +  str(context.run_config["data-set"])
         fds = load_dataset("json", data_files=data_files)
         train_partitioner.dataset =  fds["train"]
     
@@ -50,7 +50,7 @@ def get_data_shape(context: Context | None = None):
             raise FileNotFoundError("The root directory of the datasets has not been provided.")
         # Versión con path absoluto
         #data_files = context.run_config["data-path"] + "/" + context.run_config["data-set"]
-        data_files = "data/" + context.run_config["data-set"]
+        data_files: str = "data/" + str(context.run_config["data-set"])
         fds = load_dataset("json", data_files=data_files)        
 
     shape = np.array(fds["train"]['features']).shape

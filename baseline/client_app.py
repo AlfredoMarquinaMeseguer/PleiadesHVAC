@@ -31,7 +31,7 @@ def train(msg: Message, context: Context):
     # Load the model and initialize it with the received weights
     # Load the model4  
     learning_rate : float = float(context.run_config["learning-rate"])
-    model = load_model(learning_rate, context)
+    model = load_model(context, learning_rate)
     model.set_weights(msg.content["arrays"].to_numpy_ndarrays())
     epochs : int = int(context.run_config["local-epochs"])
     batch_size = context.run_config["batch-size"]
@@ -73,7 +73,7 @@ def evaluate(msg: Message, context: Context):
     keras.backend.clear_session()
 
     # Load the model
-    model = load_model(context.run_config["learning-rate"], context)
+    model = load_model(context, float(context.run_config["learning-rate"]))
     model.set_weights(msg.content["arrays"].to_numpy_ndarrays())
 
     # Load the data
