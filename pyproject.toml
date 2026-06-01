@@ -8,16 +8,17 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "baseline"
+name = "pleiadesHVAC"
 version = "1.0.0"
-description = "Base app to create a Flower Baseline"
+description = "Using the database Pleidata:HVAC (link in the README file) that uses data from the Pleiades building in the campus of the University of Murcia, a model is trained to predict next hour's temperatur using federated learning and introduciing malicious client nodes."
 license = "Apache-2.0"
 # Dependencies for your Flower App
 dependencies = [
-    "flwr[simulation]>=1.24.0",
-    "flwr-datasets[vision]>=0.5.0",
-    "torch==2.8.0",
-    "torchvision==0.23.0",
+    "flwr[simulation]==1.30.0",
+    "flwr-datasets>=0.5.0",
+    "tensorflow==2.21.0",
+    "keras==3.12.2",
+    "numpy==2.2.6"
 ]
 
 [tool.hatch.metadata]
@@ -127,17 +128,20 @@ fab-exclude = ["data/**", ".gitignore"]  # Optional
 # Point to your ServerApp and ClientApp objects
 # Format: "<module>:<object>"
 [tool.flwr.app.components]
-serverapp = "baseline.server_app:app"
-clientapp = "baseline.client_app:app"
+serverapp = "pleiadesHVAC.server_app:app"
+clientapp = "pleiadesHVAC.client_app:app"
 
+# =====================================================================
 # Custom config values accessible via `context.run_config`
+# https://flower.ai/docs/framework/how-to-configure-pyproject-toml.html
+# =====================================================================
 [tool.flwr.app.config]
 # Absolute path to the data directory/folder
 # NOTE: We have to use the absolute path because if we include 
 # the dataset in the FAB it exceeds flower's maximum allowed size.
 data-path = "/home/alf/Documents/rewrite_tfg/data" # Not used rigth now
 
-data-set= "buildingA-data.json"
+data-set= "buildingC-data"
 model-type = "gru" # "transformer" "lstm" "convlstm" "gru" "gruSimple"
 
 num-server-rounds = 3
@@ -151,8 +155,6 @@ save-model = false
 # NOTE: The following sections are supposed to be deprecated
 # but the baseline project includes them so we'll leave 
 # them there
-
-# Default federation to use when running the app
 
 #######################################################################
 # CONFIGURATION MIGRATION NOTICE:
@@ -168,6 +170,8 @@ save-model = false
 #
 # Docs: https://flower.ai/docs/framework/ref-flower-configuration.html
 #######################################################################
+
+# Default federation to use when running the app
 
 # [tool.flwr.federations]
 # default = "local-simulation"
