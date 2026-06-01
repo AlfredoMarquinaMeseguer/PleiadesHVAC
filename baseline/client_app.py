@@ -1,16 +1,11 @@
 """baseline: A Flower Baseline."""
-
-from flwr.app import ArrayRecord, Context, Message, MetricRecord, RecordDict
-from flwr.clientapp import ClientApp
-
-from baseline.dataset import load_data
-from baseline.model import load_model
-
 import keras
 from flwr.app import ArrayRecord, Context, Message, MetricRecord, RecordDict
 from flwr.clientapp import ClientApp
-
-
+import numpy as np
+# Local imports
+from baseline.dataset import load_data
+from baseline.model import load_model
 
 # Flower ClientApp
 app = ClientApp()
@@ -27,6 +22,11 @@ def train(msg: Message, context: Context):
     partition_id = context.node_config["partition-id"]
     num_partitions = context.node_config["num-partitions"]
     x_train, y_train, _, _ = load_data(partition_id, num_partitions, context)
+
+    if context.run_config["model-type"] == 'convlstm':
+        x_train = np.array(x_train)
+        n_samples, timesteps, n_features = x_train.shape
+        x_train = x_train.reshape((n_samples, timesteps, 1, n_features, 1))
 
     # Load the model and initialize it with the received weights
     # Load the model4  
@@ -80,6 +80,12 @@ def evaluate(msg: Message, context: Context):
     partition_id = int(context.node_config["partition-id"])
     num_partitions = int(context.node_config["num-partitions"])
     _, _, x_test, y_test = load_data(partition_id, num_partitions, context)
+
+    # Reshape input for convlstm
+    if context.run_config["model-type"] == 'convlstm':
+        x_test = np.array(x_test)
+        n_samples, timesteps, n_features = x_test.shape
+        x_test = x_test.reshape((n_samples, timesteps, 1, n_features, 1))
 
     # Evaluate the model
     eval_loss, eval_acc = model.evaluate(x_test, y_test, verbose=0)
