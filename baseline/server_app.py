@@ -23,7 +23,7 @@ def main(grid: Grid, context: Context) -> None:
     fraction_train = float(context.run_config["fraction-train"])
 
     # Load global model
-    model:tf.keras.Model = load_model()
+    model:tf.keras.Model = load_model(context=context)
     arrays = ArrayRecord(model.get_weights())
 
     # Initialize FedAvg strategy

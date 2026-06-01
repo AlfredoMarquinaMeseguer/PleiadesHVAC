@@ -122,6 +122,7 @@ packages = ["."]
 
 [tool.flwr.app]
 publisher = "flwrlabs"
+fab-exclude = ["data/**"]  # Optional
 
 # Point to your ServerApp and ClientApp objects
 # Format: "<module>:<object>"
@@ -131,6 +132,11 @@ clientapp = "baseline.client_app:app"
 
 # Custom config values accessible via `context.run_config`
 [tool.flwr.app.config]
+# Absolute path to the data directory/folder
+# NOTE: We have to use the absolute path because if we include 
+# the dataset in the FAB it exceeds flower's maximum allowed size.
+data-path = "/home/alf/Documents/rewrite_tfg/data" 
+data-set= "buildingA-data.json"
 num-server-rounds = 3
 local-epochs = 1
 batch-size = 32

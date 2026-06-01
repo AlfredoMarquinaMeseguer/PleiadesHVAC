@@ -5,11 +5,14 @@ import keras
 from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import IidPartitioner
 from keras import layers
+from baseline.models import GRUModelBuilder
+from baseline.dataset import get_data_shape
+from flwr.app import Context
 
 # Make TensorFlow log less verbose
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-
+'''
 def load_model(learning_rate: float = 0.001):
     # Define a simple CNN for CIFAR-10 and set Adam optimizer
     model = keras.Sequential(
@@ -31,6 +34,12 @@ def load_model(learning_rate: float = 0.001):
         metrics=["accuracy"],
     )
     return model
+'''
+
+def load_model(learning_rate: float = 0.001, context: Context|None = None):
+    input_shape = get_data_shape(context)
+    # TODO: cambiar para que la se seleccione el tipo de modelo segun config
+    return GRUModelBuilder(input_shape=input_shape).build()
 
 '''
 def train(net, trainloader, epochs, device):

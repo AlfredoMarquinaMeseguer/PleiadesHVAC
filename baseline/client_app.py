@@ -20,23 +20,22 @@ app = ClientApp()
 def train(msg: Message, context: Context):
     """Train the model on local data."""
 
-
     # Reset local Tensorflow state
     keras.backend.clear_session()
-
-    # Load the model and initialize it with the received weights
-    # Load the model4  
-    model = load_model(context.run_config["learning-rate"])
-    model.set_weights(msg.content["arrays"].to_numpy_ndarrays())
-    epochs = context.run_config["local-epochs"]
-    batch_size = context.run_config["batch-size"]
-    verbose = context.run_config.get("verbose")
 
     # Load the data
     partition_id = context.node_config["partition-id"]
     num_partitions = context.node_config["num-partitions"]
-    x_train, y_train, _, _ = load_data(partition_id, num_partitions)
-   
+    x_train, y_train, _, _ = load_data(partition_id, num_partitions, context)
+
+    # Load the model and initialize it with the received weights
+    # Load the model4  
+    learning_rate : float = float(context.run_config["learning-rate"])
+    model = load_model(learning_rate, context)
+    model.set_weights(msg.content["arrays"].to_numpy_ndarrays())
+    epochs : int = int(context.run_config["local-epochs"])
+    batch_size = context.run_config["batch-size"]
+    verbose =  context.run_config.get("verbose")
 
     # Train the model
     history = model.fit(
@@ -44,7 +43,7 @@ def train(msg: Message, context: Context):
         y_train,
         epochs=epochs,
         batch_size=batch_size,
-        verbose=verbose,
+        verbose=verbose
     )
 
     # Get training metrics
@@ -74,13 +73,13 @@ def evaluate(msg: Message, context: Context):
     keras.backend.clear_session()
 
     # Load the model
-    model = load_model(context.run_config["learning-rate"])
+    model = load_model(context.run_config["learning-rate"], context)
     model.set_weights(msg.content["arrays"].to_numpy_ndarrays())
 
     # Load the data
     partition_id = int(context.node_config["partition-id"])
     num_partitions = int(context.node_config["num-partitions"])
-    _, _, x_test, y_test = load_data(partition_id, num_partitions)
+    _, _, x_test, y_test = load_data(partition_id, num_partitions, context)
 
     # Evaluate the model
     eval_loss, eval_acc = model.evaluate(x_test, y_test, verbose=0)
