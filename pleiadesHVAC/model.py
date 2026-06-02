@@ -38,7 +38,7 @@ def load_model(learning_rate: float = 0.001):
 
 def load_model(context, learning_rate: float = 0.001):
     
-    input_shape = get_data_shape(context)
+    input_shape = get_data_shape(context.run_config["data-set"])
     model = None
 
     match context.run_config["model-type"]:

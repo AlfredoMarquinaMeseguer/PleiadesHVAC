@@ -21,7 +21,7 @@ def train(msg: Message, context: Context):
     # Load the data
     partition_id = context.node_config["partition-id"]
     num_partitions = context.node_config["num-partitions"]
-    x_train, y_train, _, _ = load_data(partition_id, num_partitions, context)
+    x_train, y_train, _, _ = load_data(partition_id, num_partitions, "buildingA-data")
 
     if context.run_config["model-type"] == 'convlstm':
         x_train = np.array(x_train)
@@ -79,7 +79,7 @@ def evaluate(msg: Message, context: Context):
     # Load the data
     partition_id = int(context.node_config["partition-id"])
     num_partitions = int(context.node_config["num-partitions"])
-    _, _, x_test, y_test = load_data(partition_id, num_partitions, context)
+    _, _, x_test, y_test = load_data(partition_id, num_partitions, "buildingA-data")
 
     # Reshape input for convlstm
     if context.run_config["model-type"] == 'convlstm':
