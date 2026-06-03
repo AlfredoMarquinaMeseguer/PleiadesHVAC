@@ -9,6 +9,8 @@ from flwr.serverapp.strategy import FedAvg
 from flwr.app import (
     Message,
     MetricRecord,
+    ConfigRecord,
+    MessageType
 )
 from flwr.common import (
     ArrayRecord,
@@ -18,9 +20,10 @@ from flwr.common import (
     log,
 )
 
-from typing import cast
+import random
+from time import sleep
 
-from flwr.serverapp.strategy.strategy_utils import aggregate_arrayrecords
+from typing import cast
 
 from collections.abc import Callable, Iterable
 
@@ -47,7 +50,7 @@ class FedAvgMultiDatasets(FedAvg):
         weighted_by_key: str = "num-examples",
         arrayrecord_key: str = "arrays",
         configrecord_key: str = "config",
-        datasetrecord_key: str = "dataset",
+        datasetrecord_key: str = "dataset_name",
         train_metrics_aggr_fn: (
             Callable[[list[RecordDict], str], MetricRecord] | None
         ) = None,
@@ -82,12 +85,12 @@ class FedAvgMultiDatasets(FedAvg):
     ) -> Iterable[Message]:
         """Construct N Messages carrying the same RecordDict payload."""
         messages = []
-        for node_id in node_ids:  # one message for each node
+        for node_id, i in zip(node_ids, range(len(node_ids))):  # one message for each node
             # Overriten part:
             # Configure node-specific options in this case the dataset 
             # assigne to each node
-            node_config = record[self.configrecord_key].copy()
-            node_config[self.datasetrecord_key] = self.available_datasets[node_id] # pyright: ignore[reportArgumentType]
+            node_config = record[self.configrecord_key].copy()            
+            node_config[self.datasetrecord_key] = self.available_datasets[i] # pyright: ignore[reportArgumentType]
             node_record = RecordDict(
                 {
                     self.arrayrecord_key: record[self.arrayrecord_key],
@@ -123,83 +126,113 @@ class FedAvgMultiDatasets(FedAvg):
         log(INFO, "\t\t├── ArrayRecord key: '%s'", self.arrayrecord_key)
         log(INFO, "\t\t└── ConfigRecord key: '%s'", self.configrecord_key)
 
+    def configure_train(
+        self, server_round: int, arrays: ArrayRecord, config: ConfigRecord, grid: Grid
+    ) -> Iterable[Message]:
+        """Configure the next round of federated training."""
+        # Do not configure federated train if fraction_train is 0.
+        if self.fraction_train == 0.0:
+            return []
+        
+        # NOTE: The following part it the overwritten part, where we sample only the exact number of nodes needed
+        # and get a warning if not enough nodes are available.
+        # Sample nodes
+        num_nodes = int(len(list(grid.get_node_ids())) * self.fraction_train)
+        
+        if num_nodes < self.min_available_nodes:
+            log(
+                WARNING,
+                "Not enough nodes available for training (available: %d, required: %d).",
+                len(list(grid.get_node_ids())),
+                self.min_available_nodes,
+            )
+            return []
+        
+        node_ids, num_total = sample_nodes(grid, self.min_available_nodes)
+        # End of overwritten part
 
-class FedAvgExamples(FedAvg):
-    """
-    FedAvg-based strategy that saves the global model weights after each round.
-
-    Overrides
-    ---------
-    _aggregate_fit  - overrides the method to save the global model weights after each round.
-    """
-    def __init__(
-        self,
-        fraction_train: float = 1.0,
-        fraction_evaluate: float = 1.0,
-        min_train_nodes: int = 2,
-        min_evaluate_nodes: int = 2,
-        min_available_nodes: int = 2,
-        weighted_by_key: str = "num-examples",
-        arrayrecord_key: str = "arrays",
-        configrecord_key: str = "config",
-        train_metrics_aggr_fn: (
-            Callable[[list[RecordDict], str], MetricRecord] | None
-        ) = None,
-        evaluate_metrics_aggr_fn: (
-            Callable[[list[RecordDict], str], MetricRecord] | None
-        ) = None,
-    ) -> None:
-        super().__init__(
-            fraction_train=fraction_train,
-            fraction_evaluate=fraction_evaluate,
-            min_train_nodes=min_train_nodes,
-            min_evaluate_nodes=min_evaluate_nodes,
-            min_available_nodes=min_available_nodes,
-            weighted_by_key=weighted_by_key,
-            arrayrecord_key=arrayrecord_key,
-            configrecord_key=configrecord_key,
-            train_metrics_aggr_fn=train_metrics_aggr_fn,
-            evaluate_metrics_aggr_fn=evaluate_metrics_aggr_fn,
+        log(
+            INFO,
+            "configure_train: Sampled %s nodes (out of %s)",
+            len(node_ids),
+            len(num_total),
         )
-        self.num_examples_history = []  # To keep track of the number of examples in each round
+        # Always inject current server round
+        config["server-round"] = server_round
 
-    def aggregate_train(
-        self,
-        server_round: int,    
-        replies: Iterable[Message],
-    ) -> tuple[ArrayRecord | None, MetricRecord | None]:
-        """Aggregate ArrayRecords and MetricRecords in the received Messages."""
-        valid_replies, _ = self._check_and_log_replies(replies, is_train=True)
+        # Construct messages
+        record = RecordDict(
+            {self.arrayrecord_key: arrays, self.configrecord_key: config}
+        )
+        return self._construct_messages(record, node_ids, MessageType.TRAIN)
+    def configure_evaluate(
+        self, server_round: int, arrays: ArrayRecord, config: ConfigRecord, grid: Grid
+    ) -> Iterable[Message]:
+        """Configure the next round of federated evaluation."""
+        # Do not configure federated evaluation if fraction_evaluate is 0.
+        if self.fraction_evaluate == 0.0:
+            return []
 
-        arrays, metrics = None, None
-        if valid_replies:
-            reply_contents = [msg.content for msg in valid_replies]
-
-            # Aggregate ArrayRecords
-            arrays = aggregate_arrayrecords(
-                reply_contents,
-                self.weighted_by_key,
+        # NOTE: The following part it the overwritten part, where we sample only the exact number of nodes needed
+        # and get a warning if not enough nodes are available.
+        # Sample nodes
+        num_nodes = int(len(list(grid.get_node_ids())) * self.fraction_train)
+        
+        if num_nodes < self.min_available_nodes:
+            log(
+                WARNING,
+                "Not enough nodes available for training (available: %d, required: %d).",
+                len(list(grid.get_node_ids())),
+                self.min_available_nodes,
             )
+            return []
+     
+        
+        node_ids, num_total = sample_nodes(grid, self.min_available_nodes)
+        # End of overwritten part
+        
+        log(
+            INFO,
+            "configure_evaluate: Sampled %s nodes (out of %s)",
+            len(node_ids),
+            len(num_total),
+        )
 
-            # Aggregate MetricRecords
-            metrics = self.train_metrics_aggr_fn(
-                reply_contents,
-                self.weighted_by_key,
-            )
+        # Always inject current server round
+        config["server-round"] = server_round
 
-            # NOTE: This is where we add the saving of the weights 
-            # Retrieve weighting factor from MetricRecord
-            weights: list[float] = []
-            for record in reply_contents:
-                # Get the first (and only) MetricRecord in the record
-                metricrecord = next(iter(record.metric_records.values()))
-                # Because replies have been checked for consistency,
-                # we can safely cast the weighting factor to float
-                w = cast(float, metricrecord[self.weighted_by_key])
-                weights.append(w)
+        # Construct messages
+        record = RecordDict(
+            {self.arrayrecord_key: arrays, self.configrecord_key: config}
+        )
+        return self._construct_messages(record, node_ids, MessageType.EVALUATE)
 
-            # Average
-            total_weight = sum(weights)
-            self.num_examples_history.append(total_weight)
 
-        return arrays, metrics
+def sample_nodes(
+    grid: Grid, sample_size: int
+) -> tuple[list[int], list[int]]:
+    """Edit of the Flower strategy_utils function of the same name to wait an exact number of nodes, 
+    instead of a max and a min
+
+    Returns
+    -------
+    tuple[list[int], list[int]]
+        A tuple containing the sampled node IDs and the list
+        of all connected node IDs.
+    """
+    sampled_nodes = []
+
+    # wait for min_available_nodes to be online
+    while len(all_nodes := list(grid.get_node_ids())) < sample_size:
+        log(
+            INFO,
+            "Waiting for nodes to connect: %d connected (minimum required: %d).",
+            len(all_nodes),
+            sample_size,
+        )
+        sleep(1)
+
+    # Sample nodes
+    sampled_nodes = random.sample(all_nodes, sample_size)
+
+    return sampled_nodes, all_nodes

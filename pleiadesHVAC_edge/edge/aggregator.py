@@ -10,12 +10,12 @@ from flwr.serverapp.strategy.result import Result
 
 from flwr.simulation import run_simulation
 
-from pleiadesHVAC.model import load_model
+from .model import load_model
 import numpy as np
 # Local imports
-from pleiadesHVAC.dataset import load_data
+from .dataset import load_data
 from .utils import save_result_to_json
-from .strategies import FedAvgExamples
+from .strategy import FedAvgExamples
 
 ####################################################################
 # Aggregator composed of a ClientApp and a ServerApp
@@ -53,4 +53,7 @@ def main(grid: Grid, context: Context) -> None:
         num_rounds=num_rounds,
     )    
 
-    save_result_to_json(result, strategy.num_examples_history[-1], "result.json")
+    dataset_name = context.run_config.get("dataset_name", None)
+
+    results_filename = f"{dataset_name}_result.json" if dataset_name else "result.json"    
+    save_result_to_json(result, strategy.num_examples_history[-1], results_filename)

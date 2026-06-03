@@ -7,10 +7,8 @@ import tensorflow as tf
 
 from flwr.app import ArrayRecord, Context
 from flwr.serverapp import Grid, ServerApp
-from flwr.serverapp.strategy import FedAvg
-import flwr.simulation
-from pleiadesHVAC.model import load_model
-from pleiadesHVAC.strategies import FedAvgMultiDatasets
+from .model import load_model
+from .strategy import FedAvgMultiDatasets
 # Create ServerApp
 app = ServerApp()
 

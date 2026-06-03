@@ -6,7 +6,7 @@ from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import IidPartitioner
 from keras import layers
 from .models import GRUModelBuilder, GRUSimpleModelBuilder, ConvLSTMModelBuilder, LSTMModelBuilder, TransformerModelBuilder
-from pleiadesHVAC.dataset import get_data_shape
+from .dataset import get_data_shape
 from flwr.app import Context
 
 # Make TensorFlow log less verbose
@@ -37,7 +37,6 @@ def load_model(learning_rate: float = 0.001):
 '''
 
 def load_model(context, learning_rate: float = 0.001):
-    
     input_shape = get_data_shape(context.run_config["dataset_name"])
     model = None
 

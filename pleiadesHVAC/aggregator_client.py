@@ -6,17 +6,19 @@ from flwr.serverapp import Grid, ServerApp
 from flwr.clientapp import ClientApp
 from flwr.serverapp.strategy import FedAvg
 from flwr.serverapp.strategy.result import Result
+from flwr.cli.run import run
 
 
-from flwr.simulation import run_simulation
+from flwr.simulation import run_simulation, start_simulation
 
-from pleiadesHVAC.model import load_model
+from .model import load_model
 import numpy as np
 # Local imports
-from pleiadesHVAC.dataset import load_data
-from .client_app import app
-from .aggregator import server
+from .dataset import load_data
 from .utils import load_result_from_json
+from logging import INFO, WARNING
+from flwr.common import log
+
 client = ClientApp()
 
 @client.train()
@@ -25,19 +27,18 @@ def train(msg: Message, context: Context) -> Message:
 
     dataset_name = str(msg.content["config"]["dataset_name"])
 
-    run_simulation(
-        client_app=app,
-        server_app=server,
-        num_supernodes=1,        
-        backend_config={
-            "dataset_name": dataset_name
-            },        
-    )
-    
-    result, num_examples = load_result_from_json(dataset_name+"_result.json")
+    run("pleiadesHVAC_edge/", run_config_overrides=[f'dataset_name="{dataset_name}"']
+        ,stream=True)
 
-    train_loss = result.train_metrics_clientapp[-1].get("train_loss", None)
-    train_acc = result.train_metrics_clientapp[-1].get("train_acc", None)
+    result, num_examples = load_result_from_json(f"{dataset_name}_result.json")
+
+    train_loss = result.train_metrics_clientapp                \
+                .get(len(result.train_metrics_clientapp), {}) \
+                .get("train_loss", None)
+
+    train_acc = result.train_metrics_clientapp                \
+                .get(len(result.train_metrics_clientapp), {}) \
+                .get("train_acc", None)
 
     model_record = ArrayRecord(result.arrays.to_numpy_ndarrays())
     metrics = { "num-examples" : num_examples }
@@ -58,8 +59,6 @@ def evaluate(msg: Message, context: Context) -> Message:
 
     # Reset local Tensorflow state
     keras.backend.clear_session()
-
-
 
     # Load the model
     model = load_model(context, float(context.run_config["learning-rate"]))

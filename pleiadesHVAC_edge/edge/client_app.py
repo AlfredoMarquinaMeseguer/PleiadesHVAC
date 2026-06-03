@@ -5,8 +5,8 @@ from flwr.clientapp import ClientApp
 from matplotlib.style import context
 import numpy as np
 # Local imports
-from pleiadesHVAC.dataset import load_data
-from pleiadesHVAC.model import load_model
+from .dataset import load_data
+from .model import load_model
 
 # Flower ClientApp
 app = ClientApp()
@@ -20,7 +20,10 @@ def train(msg: Message, context: Context):
     keras.backend.clear_session()
 
     # Load the data
-    dataset_name = str(context.run_config["dataset_name"])
+    dataset_name = context.run_config.get("dataset_name", None)
+    if dataset_name is None:
+        dataset_name = "buildingA-data"
+
     partition_id = context.node_config["partition-id"]
     num_partitions = context.node_config["num-partitions"]
     x_train, y_train, _, _ = load_data(partition_id, num_partitions, dataset_name)
@@ -79,9 +82,12 @@ def evaluate(msg: Message, context: Context):
     model.set_weights(msg.content["arrays"].to_numpy_ndarrays())
 
     # Load the data
-    dataset_name = str(context.run_config["dataset_name"])
+    dataset_name = context.run_config.get("dataset_name", None)
     partition_id = int(context.node_config["partition-id"])
     num_partitions = int(context.node_config["num-partitions"])
+
+    if dataset_name is None:
+        dataset_name = "buildingA-data"
     _, _, x_test, y_test = load_data(partition_id, num_partitions, dataset_name)
 
     # Reshape input for convlstm

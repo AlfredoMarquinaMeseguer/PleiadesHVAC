@@ -128,8 +128,8 @@ fab-exclude = ["data/**", ".gitignore"]  # Optional
 # Point to your ServerApp and ClientApp objects
 # Format: "<module>:<object>"
 [tool.flwr.app.components]
-serverapp = "pleiadesHVAC.aggregator:server"
-clientapp = "pleiadesHVAC.client_app:app"
+serverapp = "pleiadesHVAC.server_app:app"
+clientapp = "pleiadesHVAC.aggregator_client:client"
 
 # =====================================================================
 # Custom config values accessible via `context.run_config`
@@ -141,7 +141,7 @@ clientapp = "pleiadesHVAC.client_app:app"
 # the dataset in the FAB it exceeds flower's maximum allowed size.
 data-path = "/home/alf/Documents/rewrite_tfg/data" # Not used rigth now
 
-data-set= "buildingC-data"
+dataset_name= "buildingC-data"
 model-type = "gru" # "transformer" "lstm" "convlstm" "gru" "gruSimple"
 
 num-server-rounds = 1
