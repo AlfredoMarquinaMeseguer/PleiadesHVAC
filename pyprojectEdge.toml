@@ -8,7 +8,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "pleiadesHVAC"
+name = "edge"
 version = "1.0.0"
 description = "Using the database Pleidata:HVAC (link in the README file) that uses data from the Pleiades building in the campus of the University of Murcia, a model is trained to predict next hour's temperatur using federated learning and introduciing malicious client nodes."
 license = "Apache-2.0"

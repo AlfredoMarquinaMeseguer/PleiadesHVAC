@@ -2,6 +2,7 @@
 import keras
 from flwr.app import ArrayRecord, Context, Message, MetricRecord, RecordDict
 from flwr.clientapp import ClientApp
+from matplotlib.style import context
 import numpy as np
 # Local imports
 from pleiadesHVAC.dataset import load_data
@@ -19,9 +20,10 @@ def train(msg: Message, context: Context):
     keras.backend.clear_session()
 
     # Load the data
+    dataset_name = str(context.run_config["dataset_name"])
     partition_id = context.node_config["partition-id"]
     num_partitions = context.node_config["num-partitions"]
-    x_train, y_train, _, _ = load_data(partition_id, num_partitions, "buildingA-data")
+    x_train, y_train, _, _ = load_data(partition_id, num_partitions, dataset_name)
 
     if context.run_config["model-type"] == 'convlstm':
         x_train = np.array(x_train)
@@ -77,9 +79,10 @@ def evaluate(msg: Message, context: Context):
     model.set_weights(msg.content["arrays"].to_numpy_ndarrays())
 
     # Load the data
+    dataset_name = str(context.run_config["dataset_name"])
     partition_id = int(context.node_config["partition-id"])
     num_partitions = int(context.node_config["num-partitions"])
-    _, _, x_test, y_test = load_data(partition_id, num_partitions, "buildingA-data")
+    _, _, x_test, y_test = load_data(partition_id, num_partitions, dataset_name)
 
     # Reshape input for convlstm
     if context.run_config["model-type"] == 'convlstm':
