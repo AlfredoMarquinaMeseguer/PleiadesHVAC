@@ -223,3 +223,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 test.ipynb
+
+# Project specific data
+state/**

@@ -21,6 +21,7 @@ from flwr.common import log
 
 client = ClientApp()
 
+RESULTS_OUTPUT_FILE = "state/results/{}_result.json"
 @client.train()
 def train(msg: Message, context: Context) -> Message:
     """Train the model on local data."""
@@ -30,7 +31,8 @@ def train(msg: Message, context: Context) -> Message:
     run("pleiadesHVAC_edge/", run_config_overrides=[f'dataset_name="{dataset_name}"']
         ,stream=True)
 
-    result, num_examples = load_result_from_json(f"{dataset_name}_result.json")
+    file_path = RESULTS_OUTPUT_FILE.format(dataset_name if dataset_name else "")
+    result, num_examples = load_result_from_json(file_path)
 
     train_loss = result.train_metrics_clientapp                \
                 .get(len(result.train_metrics_clientapp), {}) \

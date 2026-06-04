@@ -12,10 +12,12 @@ from flwr.simulation import run_simulation
 
 from .model import load_model
 import numpy as np
+from numpy.typing import NDArray
 # Local imports
 from .dataset import load_data
 from .utils import save_result_to_json
 from .strategy import FedAvgExamples
+import os
 
 ####################################################################
 # Aggregator composed of a ClientApp and a ServerApp
@@ -26,6 +28,9 @@ from .strategy import FedAvgExamples
 # Create ServerApp
 server = ServerApp()
 
+GLOBAL_MODEL_PATH = "state/global_model.npz"
+RESULTS_OUTPUT_FILE = "state/results/{}_result.json"
+
 @server.main()
 def main(grid: Grid, context: Context) -> None:
     """Run entry point for the ServerApp."""
@@ -35,9 +40,13 @@ def main(grid: Grid, context: Context) -> None:
     num_rounds = int(context.run_config["num-server-rounds"])
     fraction_train = float(context.run_config["fraction-train"])
 
+
+
     # Load global model
     model:tf.keras.Model = load_model(context=context)
-    arrays = ArrayRecord(model.get_weights())
+    loaded =  np.load(GLOBAL_MODEL_PATH)
+    arrays = [loaded[k] for k in loaded.files]
+    arrays = ArrayRecord(arrays)
 
     # Initialize FedAvg strategy
     strategy = FedAvgExamples(
@@ -53,7 +62,10 @@ def main(grid: Grid, context: Context) -> None:
         num_rounds=num_rounds,
     )    
 
+    # Export results to JSON
     dataset_name = context.run_config.get("dataset_name", None)
+    
+    file_path = RESULTS_OUTPUT_FILE.format(dataset_name if dataset_name else "")
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-    results_filename = f"{dataset_name}_result.json" if dataset_name else "result.json"    
-    save_result_to_json(result, strategy.num_examples_history[-1], results_filename)
+    save_result_to_json(result, strategy.num_examples_history[-1], file_path)

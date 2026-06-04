@@ -1,8 +1,14 @@
 """baseline: A Flower Baseline."""
 from typing import Iterable
 from logging import INFO, WARNING
-
+import io
+import os
 import numpy as np
+import time
+from time import sleep
+import random
+from typing import cast
+from collections.abc import Callable, Iterable
 
 from flwr.serverapp import ServerApp, Grid
 from flwr.serverapp.strategy import FedAvg
@@ -19,27 +25,26 @@ from flwr.common import (
     RecordDict,
     log,
 )
-
-import random
-from time import sleep
-
-from typing import cast
-
-from collections.abc import Callable, Iterable
+from flwr.serverapp.strategy.result import Result
+from flwr.serverapp.strategy.strategy_utils import log_strategy_start_info
 
 # ---------------------------------------------------------------------------
 # Custom Strategy for multiple datasets
 # ---------------------------------------------------------------------------
+GLOBAL_MODEL_PATH = "state/global_model.npz"
 
 class FedAvgMultiDatasets(FedAvg):
     """
     FedAvg-based strategy with creates a node per available dataset.
 
-    Overrides
+    Override changes:
     ---------
     __init__  - adds an `available_datasets` argument and creates one node per dataset.
     _construct_messages  - overrides the method to add dataset assignment to the node configuration in each message.
-    summary - adds logging of the available datasets and the dataset assignment key.
+    summary - custom output to refelt the changes to structure
+    configure_train - uses the same amount of a nodes as the number of available_datasets
+    configure_evaluate - same a configure_train
+    start - save global model each round in `GLOBAL_MODEL_PATH` as a numpy array
     """
 
     def __init__(
@@ -77,9 +82,6 @@ class FedAvgMultiDatasets(FedAvg):
         self.available_datasets = available_datasets        
         self.datasetrecord_key = datasetrecord_key
 
-    # ------------------------------------------------------------------
-    # configure_train  (called once per global round, before messages go out)
-    # ------------------------------------------------------------------
     def _construct_messages(
         self, record: RecordDict, node_ids: list[int], message_type: str
     ) -> Iterable[Message]:
@@ -165,6 +167,7 @@ class FedAvgMultiDatasets(FedAvg):
             {self.arrayrecord_key: arrays, self.configrecord_key: config}
         )
         return self._construct_messages(record, node_ids, MessageType.TRAIN)
+    
     def configure_evaluate(
         self, server_round: int, arrays: ArrayRecord, config: ConfigRecord, grid: Grid
     ) -> Iterable[Message]:
@@ -206,8 +209,163 @@ class FedAvgMultiDatasets(FedAvg):
             {self.arrayrecord_key: arrays, self.configrecord_key: config}
         )
         return self._construct_messages(record, node_ids, MessageType.EVALUATE)
+    
+     # pylint: disable=too-many-arguments, too-many-positional-arguments, too-many-locals
+    
+    def start(
+        self,
+        grid: Grid,
+        initial_arrays: ArrayRecord,
+        num_rounds: int = 3,
+        timeout: float = 3600,
+        train_config: ConfigRecord | None = None,
+        evaluate_config: ConfigRecord | None = None,
+        evaluate_fn: Callable[[int, ArrayRecord], MetricRecord | None] | None = None,
+    ) -> Result:
+        """Execute the federated learning strategy.
 
+        Runs the complete federated learning workflow for the specified number of
+        rounds, including training, evaluation, and optional centralized evaluation.
 
+        Parameters
+        ----------
+        grid : Grid
+            The Grid instance used to send/receive Messages from nodes executing a
+            ClientApp.
+        initial_arrays : ArrayRecord
+            Initial model parameters (arrays) to be used for federated learning.
+        num_rounds : int (default: 3)
+            Number of federated learning rounds to execute.
+        timeout : float (default: 3600)
+            Timeout in seconds for waiting for node responses.
+        train_config : ConfigRecord, optional
+            Configuration to be sent to nodes during training rounds.
+            If unset, an empty ConfigRecord will be used.
+        evaluate_config : ConfigRecord, optional
+            Configuration to be sent to nodes during evaluation rounds.
+            If unset, an empty ConfigRecord will be used.
+        evaluate_fn : Callable[[int, ArrayRecord], Optional[MetricRecord]], optional
+            Optional function for centralized evaluation of the global model. Takes
+            server round number and array record, returns a MetricRecord or None. If
+            provided, will be called before the first round and after each round.
+            Defaults to None.
+
+        Returns
+        -------
+        Results
+            Results containing final model arrays and also training metrics, evaluation
+            metrics and global evaluation metrics (if provided) from all rounds.
+        """
+        log(INFO, "Starting %s strategy:", self.__class__.__name__)
+        log_strategy_start_info(
+            num_rounds, initial_arrays, train_config, evaluate_config
+        )
+        self.summary()
+        log(INFO, "")
+
+        # Initialize if None
+        train_config = ConfigRecord() if train_config is None else train_config
+        evaluate_config = ConfigRecord() if evaluate_config is None else evaluate_config
+        result = Result()
+
+        t_start = time.time()
+        # Evaluate starting global parameters
+        if evaluate_fn:
+            res = evaluate_fn(0, initial_arrays)
+            log(INFO, "Initial global evaluation results: %s", res)
+            if res is not None:
+                result.evaluate_metrics_serverapp[0] = res
+
+        arrays = initial_arrays
+
+        for current_round in range(1, num_rounds + 1):
+            log(INFO, "")
+            log(INFO, "[ROUND %s/%s]", current_round, num_rounds)
+
+            # -----------------------------------------------------------------
+            # --- TRAINING (CLIENTAPP-SIDE) -----------------------------------
+            # -----------------------------------------------------------------
+
+            # Call strategy to configure training round
+            # Send messages and wait for replies
+            train_replies = grid.send_and_receive(
+                messages=self.configure_train(
+                    current_round,
+                    arrays,
+                    train_config,
+                    grid,
+                ),
+                timeout=timeout,
+            )
+
+            # Aggregate train
+            agg_arrays, agg_train_metrics = self.aggregate_train(
+                current_round,
+                train_replies,
+            )
+
+            # Log training metrics and append to history
+            if agg_arrays is not None:
+                result.arrays = agg_arrays
+                arrays = agg_arrays
+                # NOTE: added part is the following two lines to save the global model each round                
+                os.makedirs(os.path.dirname(GLOBAL_MODEL_PATH), exist_ok=True)
+                np.savez_compressed(GLOBAL_MODEL_PATH, *arrays.to_numpy_ndarrays())
+            if agg_train_metrics is not None:
+                log(INFO, "\t└──> Aggregated MetricRecord: %s", agg_train_metrics)
+                result.train_metrics_clientapp[current_round] = agg_train_metrics
+
+            # -----------------------------------------------------------------
+            # --- EVALUATION (CLIENTAPP-SIDE) ---------------------------------
+            # -----------------------------------------------------------------
+
+            # Call strategy to configure evaluation round
+            # Send messages and wait for replies
+            evaluate_replies = grid.send_and_receive(
+                messages=self.configure_evaluate(
+                    current_round,
+                    arrays,
+                    evaluate_config,
+                    grid,
+                ),
+                timeout=timeout,
+            )
+
+            # Aggregate evaluate
+            agg_evaluate_metrics = self.aggregate_evaluate(
+                current_round,
+                evaluate_replies,
+            )
+
+            # Log training metrics and append to history
+            if agg_evaluate_metrics is not None:
+                log(INFO, "\t└──> Aggregated MetricRecord: %s", agg_evaluate_metrics)
+                result.evaluate_metrics_clientapp[current_round] = agg_evaluate_metrics
+
+            # -----------------------------------------------------------------
+            # --- EVALUATION (SERVERAPP-SIDE) ---------------------------------
+            # -----------------------------------------------------------------
+
+            # Centralized evaluation
+            if evaluate_fn:
+                log(INFO, "Global evaluation")
+                res = evaluate_fn(current_round, arrays)
+                log(INFO, "\t└──> MetricRecord: %s", res)
+                if res is not None:
+                    result.evaluate_metrics_serverapp[current_round] = res
+
+        log(INFO, "")
+        log(INFO, "Strategy execution finished in %.2fs", time.time() - t_start)
+        log(INFO, "")
+        log(INFO, "Final results:")
+        log(INFO, "")
+        for line in io.StringIO(str(result)):
+            log(INFO, "\t%s", line.strip("\n"))
+        log(INFO, "")
+
+        return result
+
+# NOTE: edited from flwr.serverapp.strategy.strategy to 
 def sample_nodes(
     grid: Grid, sample_size: int
 ) -> tuple[list[int], list[int]]:
