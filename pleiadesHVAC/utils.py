@@ -65,9 +65,3 @@ def load_result_from_json(filename: str) -> tuple[Result, float]:
         evaluate_metrics_clientapp=evaluate_metrics_clientapp,
         evaluate_metrics_serverapp=evaluate_metrics_serverapp,
     ), weigth_metric
-
-if __name__ == "__main__":
-    result, num = load_result_from_json("buildingA-data_result.json")
-    a = len(result.evaluate_metrics_clientapp)
-    print(result.evaluate_metrics_clientapp.get(a, "")) 
-    print(num)

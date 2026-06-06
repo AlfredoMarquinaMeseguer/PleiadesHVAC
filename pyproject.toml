@@ -144,7 +144,7 @@ data-path = "/home/alf/Documents/rewrite_tfg/data" # Not used rigth now
 dataset_name= "buildingC-data"
 model-type = "gru" # "transformer" "lstm" "convlstm" "gru" "gruSimple"
 
-num-server-rounds = 1
+num-server-rounds = 3
 local-epochs = 1
 batch-size = 32
 learning-rate = 0.005

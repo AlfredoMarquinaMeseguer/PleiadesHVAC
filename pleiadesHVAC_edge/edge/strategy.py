@@ -1,8 +1,10 @@
 """baseline: A Flower Baseline."""
 from typing import Iterable
 from logging import INFO, WARNING
-
+from typing import cast
 import numpy as np
+import os
+from collections.abc import Callable, Iterable
 
 from flwr.serverapp import ServerApp, Grid
 from flwr.serverapp.strategy import FedAvg
@@ -17,13 +19,11 @@ from flwr.common import (
     RecordDict,
     log,
 )
-
-from typing import cast
-
 from flwr.serverapp.strategy.strategy_utils import aggregate_arrayrecords
 
-from collections.abc import Callable, Iterable
 
+
+METRICS_FILENAME = "data/metrics/edgefederation_{}.json"
 
 class FedAvgExamples(FedAvg):
     """
@@ -35,6 +35,7 @@ class FedAvgExamples(FedAvg):
     """
     def __init__(
         self,
+        ouput_name:str = "",
         fraction_train: float = 1.0,
         fraction_evaluate: float = 1.0,
         min_train_nodes: int = 2,
@@ -63,6 +64,7 @@ class FedAvgExamples(FedAvg):
             evaluate_metrics_aggr_fn=evaluate_metrics_aggr_fn,
         )
         self.num_examples_history = []  # To keep track of the number of examples in each round
+        self.ouput_name = ouput_name
 
     def aggregate_train(
         self,
@@ -104,3 +106,39 @@ class FedAvgExamples(FedAvg):
             self.num_examples_history.append(total_weight)
 
         return arrays, metrics
+    
+    def aggregate_evaluate(
+        self,
+        server_round: int,
+        replies: Iterable[Message],
+    ) -> MetricRecord | None:
+        """Aggregate MetricRecords in the received Messages."""
+        valid_replies, _ = self._check_and_log_replies(replies, is_train=False)
+
+        metrics = None
+        individual_records = []
+        if valid_replies:
+            reply_contents = [msg.content for msg in valid_replies]
+
+            for record in reply_contents:
+                # Get the first (and only) MetricRecord in the record
+                individual_records.append(dict(next(iter(record.metric_records.values()))))
+        
+            # Aggregate MetricRecords
+            metrics = self.evaluate_metrics_aggr_fn(
+                reply_contents,
+                self.weighted_by_key,
+            )
+
+        metrics_file = {
+            "individual_metrics" : individual_records,
+            "aggregated_metrics" : dict(metrics),
+        }
+
+        filepath = METRICS_FILENAME.format(self.ouput_name)
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        import json
+        with open(filepath, "w") as f:
+            f.write(json.dumps(metrics_file, indent=4))
+        
+        return metrics

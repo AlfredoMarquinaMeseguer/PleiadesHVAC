@@ -140,7 +140,7 @@ clientapp = "edge.client_app:app"
 # the dataset in the FAB it exceeds flower's maximum allowed size.
 data-path = "/home/alf/Documents/rewrite_tfg/data" # Not used rigth now
 
-dataset_name= ""
+dataset_name= "combined-data"
 model-type = "gru" # "transformer" "lstm" "convlstm" "gru" "gruSimple"
 
 num-server-rounds = 1

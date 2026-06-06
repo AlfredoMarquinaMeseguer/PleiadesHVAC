@@ -26,9 +26,10 @@ RESULTS_OUTPUT_FILE = "state/results/{}_result.json"
 def train(msg: Message, context: Context) -> Message:
     """Train the model on local data."""
 
-    dataset_name = str(msg.content["config"]["dataset_name"])
+    dataset_name = str(msg.content["config"]["dataset_name"])    
+    model_type: str = str(context.run_config["model-type"])
 
-    run("pleiadesHVAC_edge/", run_config_overrides=[f'dataset_name="{dataset_name}"']
+    run("pleiadesHVAC_edge/", run_config_overrides=[f'dataset_name="{dataset_name}" model-type="{model_type}"']
         ,stream=True)
 
     file_path = RESULTS_OUTPUT_FILE.format(dataset_name if dataset_name else "")
@@ -63,7 +64,9 @@ def evaluate(msg: Message, context: Context) -> Message:
     keras.backend.clear_session()
 
     # Load the model
-    model = load_model(context, float(context.run_config["learning-rate"]))
+    model_type: str = str(context.run_config["model-type"])
+    dataset_name = str(msg.content["config"]["dataset_name"])    
+    model = load_model(model_type, float(context.run_config["learning-rate"]), dataset_name= dataset_name)
     model.set_weights(msg.content["arrays"].to_numpy_ndarrays())
 
     # Load the data

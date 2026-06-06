@@ -20,10 +20,14 @@ from .strategy import FedAvgExamples
 import os
 
 ####################################################################
-# Aggregator composed of a ClientApp and a ServerApp
-# ClientApp runs a simulation where the serverApp is that of the aggergator 
-# and the clientApp is that of the normal edge nodes that train on data.
+# Aggregator server called by the aggregator_client
+# also can be called on its own
 ####################################################################
+
+import warnings
+warnings.filterwarnings("ignore")
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"        # 0=ALL, 1=INFO, 2=WARNING, 3=ERROR
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"    
 
 # Create ServerApp
 server = ServerApp()
@@ -40,28 +44,31 @@ def main(grid: Grid, context: Context) -> None:
     num_rounds = int(context.run_config["num-server-rounds"])
     fraction_train = float(context.run_config["fraction-train"])
 
-
-
     # Load global model
-    model:tf.keras.Model = load_model(context=context)
-    loaded =  np.load(GLOBAL_MODEL_PATH)
-    arrays = [loaded[k] for k in loaded.files]
-    arrays = ArrayRecord(arrays)
+    try:
+        loaded =  np.load(GLOBAL_MODEL_PATH)
+        arrays = [loaded[k] for k in loaded.files]
+        arrays = ArrayRecord(arrays)
+    except:
+        model = load_model(context)
+        arrays = ArrayRecord(model.get_weights())
 
+    dataset_name = str(context.run_config["dataset_name"])
     # Initialize FedAvg strategy
     strategy = FedAvgExamples(
+        ouput_name=dataset_name,
         fraction_train=fraction_train,
         fraction_evaluate=1.0,
         min_available_nodes=2,
     )
-
+   
     # Start strategy, run FedAvg for `num_rounds`
     result = strategy.start(
         grid=grid,
         initial_arrays=arrays,
         num_rounds=num_rounds,
     )    
-
+   
     # Export results to JSON
     dataset_name = context.run_config.get("dataset_name", None)
     

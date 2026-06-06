@@ -32,6 +32,7 @@ from flwr.serverapp.strategy.strategy_utils import log_strategy_start_info
 # Custom Strategy for multiple datasets
 # ---------------------------------------------------------------------------
 GLOBAL_MODEL_PATH = "state/global_model.npz"
+METRICS_FILENAME = "data/metrics/root_federation.json"
 
 class FedAvgMultiDatasets(FedAvg):
     """
@@ -46,6 +47,7 @@ class FedAvgMultiDatasets(FedAvg):
     configure_evaluate - same a configure_train
     start - save global model each round in `GLOBAL_MODEL_PATH` as a numpy array
     """
+    
 
     def __init__(
         self,
@@ -278,6 +280,10 @@ class FedAvgMultiDatasets(FedAvg):
 
         arrays = initial_arrays
 
+        # NOTE: added part is the following two lines to save the global model's inital_arrays 
+        os.makedirs(os.path.dirname(GLOBAL_MODEL_PATH), exist_ok=True)
+        np.savez_compressed(GLOBAL_MODEL_PATH, *arrays.to_numpy_ndarrays())
+
         for current_round in range(1, num_rounds + 1):
             log(INFO, "")
             log(INFO, "[ROUND %s/%s]", current_round, num_rounds)
@@ -308,8 +314,7 @@ class FedAvgMultiDatasets(FedAvg):
             if agg_arrays is not None:
                 result.arrays = agg_arrays
                 arrays = agg_arrays
-                # NOTE: added part is the following two lines to save the global model each round                
-                os.makedirs(os.path.dirname(GLOBAL_MODEL_PATH), exist_ok=True)
+                # NOTE: the following line overwrites the arrays each round                   
                 np.savez_compressed(GLOBAL_MODEL_PATH, *arrays.to_numpy_ndarrays())
             if agg_train_metrics is not None:
                 log(INFO, "\t└──> Aggregated MetricRecord: %s", agg_train_metrics)
@@ -364,6 +369,41 @@ class FedAvgMultiDatasets(FedAvg):
         log(INFO, "")
 
         return result
+    
+    def aggregate_evaluate(
+        self,
+        server_round: int,
+        replies: Iterable[Message],
+    ) -> MetricRecord | None:
+        """Aggregate MetricRecords in the received Messages."""
+        valid_replies, _ = self._check_and_log_replies(replies, is_train=False)
+
+        metrics = None
+        individual_records = []
+        if valid_replies:
+            reply_contents = [msg.content for msg in valid_replies]
+
+            for record in reply_contents:
+                # Get the first (and only) MetricRecord in the record
+                individual_records.append(dict(next(iter(record.metric_records.values()))))
+        
+            # Aggregate MetricRecords
+            metrics = self.evaluate_metrics_aggr_fn(
+                reply_contents,
+                self.weighted_by_key,
+            )
+
+        metrics_file = {
+            "individual_metrics" : individual_records,
+            "aggregated_metrics" : dict(metrics),
+        }
+        
+        os.makedirs(os.path.dirname(METRICS_FILENAME), exist_ok=True)
+        import json
+        with open(METRICS_FILENAME, "w") as f:
+            f.write(json.dumps(metrics_file, indent=4))
+        
+        return metrics
 
 # NOTE: edited from flwr.serverapp.strategy.strategy to 
 def sample_nodes(
