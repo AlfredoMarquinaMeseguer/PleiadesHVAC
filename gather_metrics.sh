@@ -1,8 +1,7 @@
 #!/bin/bash
 
 set -e
-# "transformer"
-MODELS=( "lstm" "convlstm" "gru" "gruSimple")
+MODELS=("transformer" "ls "convlstm" "gru" "gruSimple")
 
 for model in "${MODELS[@]}"; do
     echo "========================================="
