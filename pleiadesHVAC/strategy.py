@@ -392,16 +392,6 @@ class FedAvgMultiDatasets(FedAvg):
                 reply_contents,
                 self.weighted_by_key,
             )
-
-        metrics_file = {
-            "individual_metrics" : individual_records,
-            "aggregated_metrics" : dict(metrics),
-        }
-        
-        os.makedirs(os.path.dirname(METRICS_FILENAME), exist_ok=True)
-        import json
-        with open(METRICS_FILENAME, "w") as f:
-            f.write(json.dumps(metrics_file, indent=4))
         
         return metrics
 

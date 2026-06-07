@@ -12,11 +12,14 @@ from flwr.app import (
     Message,
     MetricRecord,
 )
+from flwr.app import MessageType
+from flwr.serverapp.strategy.strategy_utils import sample_nodes
 from flwr.common import (
     ArrayRecord,
     Message,
     MetricRecord,
     RecordDict,
+    ConfigRecord,
     log,
 )
 from flwr.serverapp.strategy.strategy_utils import aggregate_arrayrecords
@@ -107,6 +110,36 @@ class FedAvgExamples(FedAvg):
 
         return arrays, metrics
     
+    
+    def configure_evaluate(
+        self, server_round: int, arrays: ArrayRecord, config: ConfigRecord, grid: Grid
+    ) -> Iterable[Message]:
+        """Configure the next round of federated evaluation."""
+        # Do not configure federated evaluation if fraction_evaluate is 0.
+        if self.fraction_evaluate == 0.0:
+            return []
+
+        # Sample nodes
+        node_ids, num_total = sample_nodes(grid, self.min_available_nodes, self.min_evaluate_nodes)
+        log(
+            INFO,
+            "configure_evaluate: Sampled %s nodes (out of %s)",
+            len(node_ids),
+            len(num_total),
+        )
+
+        # Always inject current server round
+        config["server-round"] = server_round
+
+        # Construct messages
+        record = RecordDict(
+            {self.arrayrecord_key: arrays, self.configrecord_key: config}
+        )
+        
+        return self._construct_messages(record, node_ids, MessageType.EVALUATE)        
+    
+    
+
     def aggregate_evaluate(
         self,
         server_round: int,

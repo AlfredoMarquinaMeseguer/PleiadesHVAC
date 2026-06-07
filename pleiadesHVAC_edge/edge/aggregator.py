@@ -55,11 +55,14 @@ def main(grid: Grid, context: Context) -> None:
 
     dataset_name = str(context.run_config["dataset_name"])
     # Initialize FedAvg strategy
+    num_nodes = int(context.run_config["num-nodes"])
     strategy = FedAvgExamples(
         ouput_name=dataset_name,
         fraction_train=fraction_train,
         fraction_evaluate=1.0,
-        min_available_nodes=2,
+        min_train_nodes= num_nodes,
+        min_available_nodes=num_nodes,
+        min_evaluate_nodes= num_nodes,
     )
    
     # Start strategy, run FedAvg for `num_rounds`

@@ -165,6 +165,14 @@ def get_evaluate_fn(model: tf.keras.Model, model_type:str):
         }
 
         metric_record = MetricRecord(metrics)
+
+        metrics_file = dict(metric_record)
+        METRICS_FILENAME = "data/metrics/root_federation.json"
+        os.makedirs(os.path.dirname(METRICS_FILENAME), exist_ok=True)
+        import json
+        with open(METRICS_FILENAME, "w") as f:
+            f.write(json.dumps(metrics_file, indent=4))
+            
         return metric_record
         
         

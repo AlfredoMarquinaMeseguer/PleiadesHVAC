@@ -142,6 +142,7 @@ data-path = "/home/alf/Documents/rewrite_tfg/data" # Not used rigth now
 
 dataset_name= "combined-data"
 model-type = "gru" # "transformer" "lstm" "convlstm" "gru" "gruSimple"
+num-nodes = 5
 
 num-server-rounds = 1
 local-epochs = 1

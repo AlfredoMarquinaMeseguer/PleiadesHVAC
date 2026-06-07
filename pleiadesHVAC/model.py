@@ -16,7 +16,7 @@ def load_model(model_type: str, learning_rate: float = 0.001, dataset_name:str =
     
     input_shape = get_data_shape(dataset_name)
     model = None
-    match model_type:
+    match model_type.casefold():
         case "convlstm":
             input_shape = (input_shape[0], 1, input_shape[1], 1)
             model = ConvLSTMModelBuilder(input_shape=input_shape, learning_rate=learning_rate)
@@ -24,7 +24,7 @@ def load_model(model_type: str, learning_rate: float = 0.001, dataset_name:str =
             model = LSTMModelBuilder(input_shape=input_shape, learning_rate= learning_rate)
         case "gru":    
             model = GRUModelBuilder(input_shape=input_shape, learning_rate=learning_rate)
-        case "gruSimple":    
+        case "grusimple":    
             model = GRUSimpleModelBuilder(input_shape=input_shape, learning_rate=learning_rate)
         case "transformer":    
             model = TransformerModelBuilder(input_shape=input_shape, learning_rate=learning_rate)
