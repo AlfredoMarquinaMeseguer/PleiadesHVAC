@@ -226,5 +226,6 @@ __marimo__/
 # Project specific data
 state/**
 data/metrics/**
+metrics
 *.keras
 test.ipynb
