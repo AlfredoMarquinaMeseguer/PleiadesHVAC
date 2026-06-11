@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -e
-MODELS=("transformer" "ls "convlstm" "gru" "gruSimple")
+MODELS=("transformer" "lstm" "convlstm" "gru" "gruSimple")
 
 for model in "${MODELS[@]}"; do
     echo "========================================="
@@ -18,6 +18,12 @@ for model in "${MODELS[@]}"; do
     echo "[HFL] Moving JSON files to $dest_hfl"
     mv data/metrics/*.json "$dest_hfl/"
 
+    #Move weigths to metrics/$model/HFL/weigths
+    weigths_hfl = "$dest_hfl/weigths"
+    mkdir -p "$weigths_hfl"
+    echo "[HFL] Moving weigths to $weigths_hfl"
+    mv state/* "$weigths_hfl/"
+
     echo "[HFL] Done for model: $model"
 
     # --- Second program (FL) ---
@@ -29,6 +35,12 @@ for model in "${MODELS[@]}"; do
     mkdir -p "$dest_fl"
     echo "[FL] Moving JSON file to $dest_fl"
     mv data/metrics/*.json "$dest_fl/"
+
+    #Move weigths to metrics/$model/HFL/weigths
+    weigths_fl = "$dest_fl/weigths"
+    mkdir -p "$weigths_fl"
+    echo "[FL] Moving weigths to $weigths_fl"
+    mv state/* "$weigths_fl/"
 
     echo "[FL] Done for model: $model"
 

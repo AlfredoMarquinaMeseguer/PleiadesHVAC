@@ -54,10 +54,12 @@ class FedAvgMultiDatasets(FedAvg):
         fraction_train: float = 1.0,
         fraction_evaluate: float = 1.0,
         available_datasets: list[str] = [],
+        num_nodes_subfed: list[int] = [],
         weighted_by_key: str = "num-examples",
         arrayrecord_key: str = "arrays",
         configrecord_key: str = "config",
         datasetrecord_key: str = "dataset_name",
+        num_nodes_subfed_key :str = "num_nodes",
         train_metrics_aggr_fn: (
             Callable[[list[RecordDict], str], MetricRecord] | None
         ) = None,
@@ -82,7 +84,9 @@ class FedAvgMultiDatasets(FedAvg):
             evaluate_metrics_aggr_fn=evaluate_metrics_aggr_fn,
         )
         self.available_datasets = available_datasets        
+        self.num_nodes_subfed = num_nodes_subfed
         self.datasetrecord_key = datasetrecord_key
+        self.num_nodes_subfed_key = num_nodes_subfed_key
 
     def _construct_messages(
         self, record: RecordDict, node_ids: list[int], message_type: str
@@ -95,6 +99,9 @@ class FedAvgMultiDatasets(FedAvg):
             # assigne to each node
             node_config = record[self.configrecord_key].copy()            
             node_config[self.datasetrecord_key] = self.available_datasets[i] # pyright: ignore[reportArgumentType]
+            if i < len(self.num_nodes_subfed):
+                node_config[self.num_nodes_subfed_key] = self.num_nodes_subfed[i] # pyright: ignore[reportArgumentType]
+
             node_record = RecordDict(
                 {
                     self.arrayrecord_key: record[self.arrayrecord_key],

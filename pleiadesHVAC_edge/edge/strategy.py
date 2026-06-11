@@ -69,6 +69,30 @@ class FedAvgExamples(FedAvg):
         self.num_examples_history = []  # To keep track of the number of examples in each round
         self.ouput_name = ouput_name
 
+    def configure_train(
+        self, server_round: int, arrays: ArrayRecord, config: ConfigRecord, grid: Grid
+    ) -> Iterable[Message]:
+        """Configure the next round of federated training."""
+        # Do not configure federated train if fraction_train is 0.
+        if self.fraction_train == 0.0:
+            return []
+        # Sample nodes
+        node_ids, num_total = sample_nodes(grid, self.min_available_nodes, self.min_train_nodes)
+        log(
+            INFO,
+            "configure_train: Sampled %s nodes (out of %s)",
+            len(node_ids),
+            len(num_total),
+        )
+        # Always inject current server round
+        config["server-round"] = server_round
+
+        # Construct messages
+        record = RecordDict(
+            {self.arrayrecord_key: arrays, self.configrecord_key: config}
+        )
+        return self._construct_messages(record, node_ids, MessageType.TRAIN)
+
     def aggregate_train(
         self,
         server_round: int,    
@@ -109,8 +133,7 @@ class FedAvgExamples(FedAvg):
             self.num_examples_history.append(total_weight)
 
         return arrays, metrics
-    
-    
+        
     def configure_evaluate(
         self, server_round: int, arrays: ArrayRecord, config: ConfigRecord, grid: Grid
     ) -> Iterable[Message]:
@@ -137,9 +160,7 @@ class FedAvgExamples(FedAvg):
         )
         
         return self._construct_messages(record, node_ids, MessageType.EVALUATE)        
-    
-    
-
+ 
     def aggregate_evaluate(
         self,
         server_round: int,

@@ -44,6 +44,7 @@ def main(grid: Grid, context: Context) -> None:
         fraction_train=fraction_train,
         fraction_evaluate=1.0,
         available_datasets=datasets,
+        num_nodes_subfed=[3,7,5],
     )
 
     # Start strategy, run FedAvg for `num_rounds`

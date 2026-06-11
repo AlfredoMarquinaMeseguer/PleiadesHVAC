@@ -27,9 +27,10 @@ def train(msg: Message, context: Context) -> Message:
     """Train the model on local data."""
 
     dataset_name = str(msg.content["config"]["dataset_name"])    
+    num_nodes = str(msg.content["config"]["num_nodes"])    
     model_type: str = str(context.run_config["model-type"])
 
-    run("pleiadesHVAC_edge/", run_config_overrides=[f'dataset_name="{dataset_name}" model-type="{model_type}"']
+    run("pleiadesHVAC_edge/", run_config_overrides=[f'dataset_name="{dataset_name}" model-type="{model_type}" num-nodes="{num_nodes}"']
         ,stream=True)
 
     file_path = RESULTS_OUTPUT_FILE.format(dataset_name if dataset_name else "")
