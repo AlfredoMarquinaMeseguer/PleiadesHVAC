@@ -37,7 +37,14 @@ def main(grid: Grid, context: Context) -> None:
     # Load global model
     model_type: str = str(context.run_config["model-type"])
     model:tf.keras.Model = load_model(model_type, dataset_name= datasets[0])
-    arrays = ArrayRecord(model.get_weights())
+    # NOTE: temporal para metricas
+    try:
+        GLOBAL_MODEL_PATH = "state/global_model.npz"
+        loaded =  np.load(GLOBAL_MODEL_PATH)
+        arrays = [loaded[k] for k in loaded.files]
+        arrays = ArrayRecord(arrays)
+    except:
+        arrays = ArrayRecord(model.get_weights())
     
     # Initialize FedAvg strategy
     strategy = FedAvgMultiDatasets(
