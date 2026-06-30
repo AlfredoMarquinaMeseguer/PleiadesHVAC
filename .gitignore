@@ -222,4 +222,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project specific data
+state/**
+data/metrics/**
+metrics
+*.keras
 test.ipynb

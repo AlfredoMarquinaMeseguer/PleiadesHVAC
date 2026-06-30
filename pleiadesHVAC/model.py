@@ -5,43 +5,18 @@ import keras
 from flwr_datasets import FederatedDataset
 from flwr_datasets.partitioner import IidPartitioner
 from keras import layers
-from pleiadesHVAC.models import GRUModelBuilder, GRUSimpleModelBuilder, ConvLSTMModelBuilder, LSTMModelBuilder, TransformerModelBuilder
+from .models import GRUModelBuilder, GRUSimpleModelBuilder, ConvLSTMModelBuilder, LSTMModelBuilder, TransformerModelBuilder
 from pleiadesHVAC.dataset import get_data_shape
 from flwr.app import Context
 
 # Make TensorFlow log less verbose
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-'''
-def load_model(learning_rate: float = 0.001):
-    # Define a simple CNN for CIFAR-10 and set Adam optimizer
-    model = keras.Sequential(
-        [
-            keras.Input(shape=(32, 32, 3)),
-            layers.Conv2D(32, kernel_size=(3, 3), activation="relu"),
-            layers.MaxPooling2D(pool_size=(2, 2)),
-            layers.Conv2D(64, kernel_size=(3, 3), activation="relu"),
-            layers.MaxPooling2D(pool_size=(2, 2)),
-            layers.Flatten(),
-            layers.Dropout(0.5),
-            layers.Dense(10, activation="softmax"),
-        ]
-    )
-    optimizer = keras.optimizers.Adam(learning_rate)
-    model.compile(
-        optimizer=optimizer,
-        loss="sparse_categorical_crossentropy",
-        metrics=["accuracy"],
-    )
-    return model
-'''
-
-def load_model(context, learning_rate: float = 0.001):
+def load_model(model_type: str, learning_rate: float = 0.001, dataset_name:str = "buildingA-data"):
     
-    input_shape = get_data_shape(context.run_config["data-set"])
+    input_shape = get_data_shape(dataset_name)
     model = None
-
-    match context.run_config["model-type"]:
+    match model_type.casefold():
         case "convlstm":
             input_shape = (input_shape[0], 1, input_shape[1], 1)
             model = ConvLSTMModelBuilder(input_shape=input_shape, learning_rate=learning_rate)
@@ -49,7 +24,7 @@ def load_model(context, learning_rate: float = 0.001):
             model = LSTMModelBuilder(input_shape=input_shape, learning_rate= learning_rate)
         case "gru":    
             model = GRUModelBuilder(input_shape=input_shape, learning_rate=learning_rate)
-        case "gruSimple":    
+        case "grusimple":    
             model = GRUSimpleModelBuilder(input_shape=input_shape, learning_rate=learning_rate)
         case "transformer":    
             model = TransformerModelBuilder(input_shape=input_shape, learning_rate=learning_rate)
